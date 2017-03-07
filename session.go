@@ -18,6 +18,12 @@ type Session struct {
 	mu sync.RWMutex
 }
 
+func (session *Session) isInclude(key string) bool {
+	if _, ok := session.clients[key]; ok {
+		return true
+	}
+	return false
+}
 func (session *Session) ServeHTTP(w http.ResponseWriter, r *http.Request, next http.HandlerFunc) {
 	session.mu.RLock()
 	for _, v := range r.Cookies() {
@@ -29,8 +35,23 @@ func (session *Session) ServeHTTP(w http.ResponseWriter, r *http.Request, next h
 	}
 	session.mu.RUnlock()
 
-	session.newSession(w, r, 6*time.Second)
+	session.newSession(w, r, 60*time.Second)
 	next(w, r)
+}
+
+func Add(w http.ResponseWriter, r *http.Request, durationSecond int64) {
+	DefaultSession.newSession(w, r, time.Duration(durationSecond)*time.Second)
+}
+func IsInclude(w http.ResponseWriter, r *http.Request) bool {
+	sessionkey, err := r.Cookie("key")
+	if err != nil {
+		return false
+	}
+
+	flag := DefaultSession.isInclude(sessionkey.Value)
+	fmt.Println("negroni session include:", flag)
+	fmt.Println("list:", DefaultSession.clients)
+	return flag
 }
 
 func (session *Session) newSession(w http.ResponseWriter, r *http.Request, t time.Duration) {
